@@ -1,7 +1,13 @@
+# performance-correlation
+# Mariko Ohtsuka
+# 2021/07/02
+# ------ libraries ------
 library(tidyverse)
 library(readxl)
+library(here)
+# ------ functions ------
 ReadExcel <- function(input_excel){
-  temp_ds <- read_excel(str_c(kTargetPath, input_excel), sheet=kTargetSheetName, skip=2, col_names=F)
+  temp_ds <- read_excel(here('input', input_excel), sheet=kTargetSheetName, skip=2, col_names=F)
   colnames(temp_ds) <- c('main_sub_column', 'main_column', 'main_category', 'sub_column', 'sub_category', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11', 'v12', 'v13', 'v14', 'v15', 'v16', 'sum_column')
   temp_ds$facility_code <- str_sub(input_excel, 1, 4) %>% as.numeric()
   temp_ds$filename <- input_excel
@@ -22,7 +28,7 @@ EditData3 <- function(input_ds){
   }
   ds_data3$計 <- ds_data3$がん + ds_data3$小児 + ds_data3$ゲノム医療 + ds_data3$空欄
   ds_data3 <- ds_data3 %>% left_join(temp_ds, by=c('main_column', 'main_category'))
-  temp_sum <- c(NA, '計', sum(ds_data3$がん), sum(ds_data3$小児), sum(ds_data3$ゲノム医療), sum(ds_data3$空欄), sum(ds_data3$計), NA, NA)
+  temp_sum <- c('計', NA, sum(ds_data3$がん), sum(ds_data3$小児), sum(ds_data3$ゲノム医療), sum(ds_data3$空欄), sum(ds_data3$計), NA, NA)
   ds_data3 <- ds_data3 %>% rbind(temp_sum)
   return(ds_data3)
 }
@@ -37,9 +43,11 @@ EditOutputDS <- function(input_ds){
   output_ds <- output_ds %>% rbind(temp_ds)
   return(output_ds)
 }
-kTargetPath <- '/Users/mariko/Downloads/2018/'
-kTargetSheetName='データ２（記入不要）全分野'
-filenames <- list.files(kTargetPath) %>% str_extract('^[0-9].*xlsx$') %>% na.omit()
+# ------ constant ------
+kTargetSheetName <- 'データ２（記入不要）全分野'
+kOutputFileName <- 'research_performance2018.csv'
+# ------ main ------
+filenames <- list.files(here('input')) %>% str_extract('^[0-9].*xlsx$') %>% na.omit()
 excelfiles <- map(filenames, ReadExcel)
 data3_list <- map(excelfiles, EditData3)
 output_data3_list <- map(data3_list, EditOutputDS)
@@ -49,4 +57,4 @@ for (i in 2:length(output_data3_list)){
   temp_ds <- output_data3_list[[i]] %>% rename(!!temp_colname:='計')
   output_ds <- left_join(output_ds, temp_ds, by='main_column')
 }
-write.csv("research_performance2018.csv")
+write_excel_csv(output_ds, here('output', kOutputFileName), col_names=F)
