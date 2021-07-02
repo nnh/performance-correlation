@@ -7,7 +7,7 @@ library(readxl)
 library(here)
 # ------ functions ------
 ReadExcel <- function(input_excel){
-  temp_ds <- read_excel(here('input', input_excel), sheet=kTargetSheetName, skip=2, col_names=F)
+  temp_ds <- suppressMessages(read_excel(here('input', input_excel), sheet=kTargetSheetName, skip=2, col_names=F))
   colnames(temp_ds) <- c('main_sub_column', 'main_column', 'main_category', 'sub_column', 'sub_category', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11', 'v12', 'v13', 'v14', 'v15', 'v16', 'sum_column')
   temp_ds$facility_code <- str_sub(input_excel, 1, 4) %>% as.numeric()
   temp_ds$filename <- input_excel
