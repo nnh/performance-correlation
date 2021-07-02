@@ -6,6 +6,12 @@ library(tidyverse)
 library(readxl)
 library(here)
 # ------ functions ------
+#' ReadExcel
+#'
+#' Import the Excel file located directly under 'input' folder.
+#' All formats are assumed to be the same.
+#' @param input_excel Vector of file names to import.
+#' @return dataframe for importing and processing Excel files.
 ReadExcel <- function(input_excel){
   temp_ds <- suppressMessages(read_excel(here('input', input_excel), sheet=kTargetSheetName, skip=2, col_names=F))
   colnames(temp_ds) <- c('main_sub_column', 'main_column', 'main_category', 'sub_column', 'sub_category', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11', 'v12', 'v13', 'v14', 'v15', 'v16', 'sum_column')
@@ -13,8 +19,13 @@ ReadExcel <- function(input_excel){
   temp_ds$filename <- input_excel
   return(temp_ds)
 }
+#' EditData3
+#'
+#' Aggregate the input data
+#' Follow the format of 'データ３（記入不要）研究力Ｐ'
+#' @param input_ds Dataframe for aggregation.
+#' @return Dataframe for aggregate results.
 EditData3 <- function(input_ds){
-  # 列：01がん、02小児、03ゲノム医療、00空欄、計
   temp_ds <- input_ds %>% select(c('main_column', 'main_category', 'facility_code', 'filename')) %>% distinct() %>% na.omit()
   ds_data3 <- temp_ds %>% select(c('main_column', 'main_category'))
   sub_categories <-  input_ds %>% select(c('sub_column', 'sub_category')) %>% distinct()
@@ -32,6 +43,11 @@ EditData3 <- function(input_ds){
   ds_data3 <- ds_data3 %>% rbind(temp_sum)
   return(ds_data3)
 }
+#' EditOutputDS
+#'
+#' Edit the data for CSV output.
+#' @param input_ds Dataframe for edit.
+#' @return Dataframe for CSV output.
 EditOutputDS <- function(input_ds){
   input_colnames <- c(c('main_column', '計'))
   output_colname <- input_ds %>% select('facility_code') %>% distinct() %>% na.omit() %>% as.character()
@@ -51,10 +67,12 @@ filenames <- list.files(here('input')) %>% str_extract('^[0-9].*xlsx$') %>% na.o
 excelfiles <- map(filenames, ReadExcel)
 data3_list <- map(excelfiles, EditData3)
 output_data3_list <- map(data3_list, EditOutputDS)
+# Convert a list to a data frame.
 output_ds <- output_data3_list[[1]]
 for (i in 2:length(output_data3_list)){
   temp_colname <- str_c('V', i)
   temp_ds <- output_data3_list[[i]] %>% rename(!!temp_colname:='計')
   output_ds <- left_join(output_ds, temp_ds, by='main_column')
 }
+# Output a CSV file in UTF-8 format with bom.
 write_excel_csv(output_ds, here('output', kOutputFileName), col_names=F)
