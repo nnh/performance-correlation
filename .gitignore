@@ -42,3 +42,5 @@ vignettes/*.pdf
 *.csv
 *.xlsx
 *.xlsm
+*.xls
+
