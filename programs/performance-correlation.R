@@ -1,6 +1,6 @@
 # performance-correlation
 # Mariko Ohtsuka
-# 2021/07/02
+# 2021/07/08
 # ------ libraries ------
 library(tidyverse)
 library(readxl)
@@ -11,11 +11,14 @@ library(here)
 #' Import the Excel file located directly under 'input' folder.
 #' All formats are assumed to be the same.
 #' @param input_excel Vector of file names to import.
+#' @param code_start Starting position of the facility code
+#' @param code_end Ending position of the facility code
+#' @param targetYear Target folder name
 #' @return dataframe for importing and processing Excel files.
-ReadExcel <- function(input_excel){
-  temp_ds <- suppressMessages(read_excel(here('input', input_excel), sheet=kTargetSheetName, skip=2, col_names=F))
+ReadExcel <- function(input_excel, code_start, code_end, targetYear){
+  temp_ds <- suppressMessages(read_excel(here('input', targetYear, input_excel), sheet=kTargetSheetName, skip=2, col_names=F))
   colnames(temp_ds) <- c('main_sub_column', 'main_column', 'main_category', 'sub_column', 'sub_category', 'v6', 'v7', 'v8', 'v9', 'v10', 'v11', 'v12', 'v13', 'v14', 'v15', 'v16', 'sum_column')
-  temp_ds$facility_code <- str_sub(input_excel, 1, 4) %>% as.numeric()
+  temp_ds$facility_code <- str_sub(input_excel, code_start, code_end) %>% as.numeric()
   temp_ds$filename <- input_excel
   return(temp_ds)
 }
@@ -59,20 +62,31 @@ EditOutputDS <- function(input_ds){
   output_ds <- output_ds %>% rbind(temp_ds)
   return(output_ds)
 }
+#' ExecPerformanceCorrelation
+#'
+#' Read a file from the folder of the target year, import the information of the sheet specified
+#' by 'kTargetSheetName', perform aggregation, and output a CSV file.
+#' @param targetYear the target year
+#' @param facility_code_start The position of the first character of the facility code in the file name.
+#' @param facility_code_end The position of the last character of the facility code in the file name.
+ExecPerformanceCorrelation <- function(targetYear, facility_code_start, facility_code_end){
+  filenames <- list.files(here('input', targetYear)) %>% str_extract('^[0-9].*xlsx$') %>% na.omit()
+  excelfiles <- pmap(list(filenames, facility_code_start, facility_code_end, targetYear), ReadExcel)
+  data3_list <- map(excelfiles, EditData3)
+  output_data3_list <- map(data3_list, EditOutputDS)
+  # Convert a list to a data frame.
+  output_ds <- output_data3_list[[1]]
+  for (i in 2:length(output_data3_list)){
+    temp_colname <- str_c('V', i)
+    temp_ds <- output_data3_list[[i]] %>% rename(!!temp_colname:='計')
+    output_ds <- left_join(output_ds, temp_ds, by='main_column')
+  }
+  # Output a CSV file in UTF-8 format with bom.
+  write_excel_csv(output_ds, here('output', str_c(kOutputFileNameHead, targetYear, kOutputFileNameFoot)), col_names=F)
+}
 # ------ constant ------
 kTargetSheetName <- 'データ２（記入不要）全分野'
-kOutputFileName <- 'research_performance2018.csv'
+kOutputFileNameHead <- 'research_performance'
+kOutputFileNameFoot <- '.csv'
 # ------ main ------
-filenames <- list.files(here('input')) %>% str_extract('^[0-9].*xlsx$') %>% na.omit()
-excelfiles <- map(filenames, ReadExcel)
-data3_list <- map(excelfiles, EditData3)
-output_data3_list <- map(data3_list, EditOutputDS)
-# Convert a list to a data frame.
-output_ds <- output_data3_list[[1]]
-for (i in 2:length(output_data3_list)){
-  temp_colname <- str_c('V', i)
-  temp_ds <- output_data3_list[[i]] %>% rename(!!temp_colname:='計')
-  output_ds <- left_join(output_ds, temp_ds, by='main_column')
-}
-# Output a CSV file in UTF-8 format with bom.
-write_excel_csv(output_ds, here('output', kOutputFileName), col_names=F)
+ExecPerformanceCorrelation(2018, 1, 4)
